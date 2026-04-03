@@ -40,6 +40,7 @@ package log
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/sirupsen/logrus"
 )
@@ -127,6 +128,9 @@ func SetLevel(level string) error {
 	}
 
 	L.Logger.SetLevel(lvl)
+	if slogOut != nil {
+		slogLevel.Set(logrusToSlogLevel(lvl))
+	}
 	return nil
 }
 
@@ -155,15 +159,26 @@ func SetFormat(format OutputFormat) error {
 			TimestampFormat: RFC3339NanoFixed,
 			FullTimestamp:   true,
 		})
-		return nil
 	case JSONFormat:
 		L.Logger.SetFormatter(&logrus.JSONFormatter{
 			TimestampFormat: RFC3339NanoFixed,
 		})
-		return nil
 	default:
 		return fmt.Errorf("unknown log format: %s", format)
 	}
+
+	if slogOut != nil {
+		var handler slog.Handler
+		switch format {
+		case TextFormat:
+			handler = slog.NewTextHandler(slogOut, &slog.HandlerOptions{Level: slogLevel})
+		case JSONFormat:
+			handler = slog.NewJSONHandler(slogOut, &slog.HandlerOptions{Level: slogLevel})
+		}
+		slog.SetDefault(slog.New(handler))
+	}
+
+	return nil
 }
 
 // WithLogger returns a new context with the provided logger. Use in
