@@ -40,6 +40,8 @@ package log
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -120,14 +122,69 @@ const (
 //   - "error" ([ErrorLevel])
 //   - "fatal" ([FatalLevel])
 //   - "panic" ([PanicLevel])
+//
+// In addition, a numeric value can be provided using
+// the level range defined by Go's slog library:
+//
+//   - -8: trace
+//   - -4: debug
+//   - 0: info
+//   - 4: warn
+//   - 8: error
+//   - 10: fatal
+//   - 12: panic
 func SetLevel(level string) error {
-	lvl, err := logrus.ParseLevel(level)
+	lvl, err := parseLevel(level)
 	if err != nil {
 		return err
 	}
 
 	L.Logger.SetLevel(lvl)
 	return nil
+}
+
+func parseLevel(level string) (Level, error) {
+	switch strings.ToLower(level) {
+	case "trace":
+		return TraceLevel, nil
+	case "debug":
+		return DebugLevel, nil
+	case "info":
+		return InfoLevel, nil
+	case "warn", "warning":
+		return WarnLevel, nil
+	case "error":
+		return ErrorLevel, nil
+	case "fatal":
+		return FatalLevel, nil
+	case "panic":
+		return PanicLevel, nil
+	}
+
+	// Default to parsing as numeric level
+	if v, err := strconv.Atoi(level); err == nil {
+		return numericLevel(v), nil
+	}
+	return InfoLevel, fmt.Errorf("unknown log level: %s", level)
+}
+
+// numericLevel returns the logrus level for the given integer value,
+// choosing the nearest level without going above the given value.
+func numericLevel(v int) Level {
+	if v <= -8 {
+		return TraceLevel
+	} else if v <= -4 {
+		return DebugLevel
+	} else if v <= 0 {
+		return InfoLevel
+	} else if v <= 4 {
+		return WarnLevel
+	} else if v <= 8 {
+		return ErrorLevel
+	} else if v <= 10 {
+		return FatalLevel
+	}
+	return PanicLevel
 }
 
 // GetLevel returns the current log level.
