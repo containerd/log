@@ -40,6 +40,7 @@ package log
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/sirupsen/logrus"
 )
@@ -128,6 +129,10 @@ func SetLevel(level string) error {
 
 	L.Logger.SetLevel(lvl)
 	return nil
+}
+
+func SetOutput(out io.Writer) {
+	L.Logger.SetOutput(out)
 }
 
 // GetLevel returns the current log level.
