@@ -38,6 +38,70 @@ func TestLoggerContext(t *testing.T) {
 	}
 }
 
+func TestSetLevel(t *testing.T) {
+	for _, tc := range []struct {
+		input    string
+		expected Level
+		wantErr  bool
+	}{
+		// Named levels
+		{input: "trace", expected: TraceLevel},
+		{input: "debug", expected: DebugLevel},
+		{input: "info", expected: InfoLevel},
+		{input: "warn", expected: WarnLevel},
+		{input: "warning", expected: WarnLevel},
+		{input: "error", expected: ErrorLevel},
+		{input: "fatal", expected: FatalLevel},
+		{input: "panic", expected: PanicLevel},
+		{input: "INFO", expected: InfoLevel},
+		{input: "DEBUG", expected: DebugLevel},
+
+		// Exact numeric levels
+		{input: "-8", expected: TraceLevel},
+		{input: "-4", expected: DebugLevel},
+		{input: "0", expected: InfoLevel},
+		{input: "4", expected: WarnLevel},
+		{input: "8", expected: ErrorLevel},
+		{input: "10", expected: FatalLevel},
+		{input: "12", expected: PanicLevel},
+
+		// Nearest numeric levels (without going above)
+		{input: "-10", expected: TraceLevel},
+		{input: "-6", expected: DebugLevel},
+		{input: "-5", expected: DebugLevel},
+		{input: "-2", expected: InfoLevel},
+		{input: "1", expected: WarnLevel},
+		{input: "2", expected: WarnLevel},
+		{input: "3", expected: WarnLevel},
+		{input: "6", expected: ErrorLevel},
+		{input: "7", expected: ErrorLevel},
+		{input: "9", expected: FatalLevel},
+		{input: "11", expected: PanicLevel},
+		{input: "13", expected: PanicLevel},
+		{input: "100", expected: PanicLevel},
+
+		// Invalid
+		{input: "bogus", wantErr: true},
+		{input: "", wantErr: true},
+	} {
+		t.Run(tc.input, func(t *testing.T) {
+			err := SetLevel(tc.input)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if actual := GetLevel(); actual != tc.expected {
+				t.Errorf("expected level %v, got %v", tc.expected, actual)
+			}
+		})
+	}
+}
+
 func TestCompat(t *testing.T) {
 	expected := Fields{
 		"hello1": "world1",
