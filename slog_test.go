@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
+	lslog "github.com/sirupsen/logrus/hooks/slog"
 )
 
 // setupSlogTest sets up UseSlogHook with a captured slog buffer and a separate
@@ -266,7 +267,7 @@ func TestLogrusToSlogLevel(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.logrusLevel.String(), func(t *testing.T) {
-			got := logrusToSlogLevel(tc.logrusLevel)
+			got := lslog.Level(tc.logrusLevel).Level()
 			if got != tc.slogLevel {
 				t.Errorf("logrusToSlogLevel(%v) = %v, want %v", tc.logrusLevel, got, tc.slogLevel)
 			}

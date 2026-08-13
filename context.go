@@ -145,9 +145,6 @@ func SetLevel[T levelValue](level T) error {
 	}
 
 	L.Logger.SetLevel(lvl)
-	if slogOut != nil {
-		slogLevel.Set(logrusToSlogLevel(lvl))
-	}
 	return nil
 }
 
@@ -188,9 +185,9 @@ func SetFormat(format OutputFormat) error {
 		var handler slog.Handler
 		switch format {
 		case TextFormat:
-			handler = slog.NewTextHandler(slogOut, &slog.HandlerOptions{Level: slogLevel})
+			handler = slog.NewTextHandler(slogOut, &slog.HandlerOptions{Level: loggerLevel{}})
 		case JSONFormat:
-			handler = slog.NewJSONHandler(slogOut, &slog.HandlerOptions{Level: slogLevel})
+			handler = slog.NewJSONHandler(slogOut, &slog.HandlerOptions{Level: loggerLevel{}})
 		}
 		slog.SetDefault(slog.New(handler))
 	}
