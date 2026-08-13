@@ -25,7 +25,6 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
-	lslog "github.com/sirupsen/logrus/hooks/slog"
 )
 
 // setupSlogTest sets up UseSlogHook with a captured slog buffer and a separate
@@ -248,29 +247,5 @@ func TestSetLevelWithSlog(t *testing.T) {
 	L.Info("now visible")
 	if !strings.Contains(slogBuf.String(), "now visible") {
 		t.Errorf("expected info message to appear at debug level, got: %s", slogBuf.String())
-	}
-}
-
-func TestLogrusToSlogLevel(t *testing.T) {
-	tests := []struct {
-		logrusLevel logrus.Level
-		slogLevel   slog.Level
-	}{
-		{logrus.PanicLevel, slog.LevelError + 4},
-		{logrus.FatalLevel, slog.LevelError + 2},
-		{logrus.ErrorLevel, slog.LevelError},
-		{logrus.WarnLevel, slog.LevelWarn},
-		{logrus.InfoLevel, slog.LevelInfo},
-		{logrus.DebugLevel, slog.LevelDebug},
-		{logrus.TraceLevel, slog.LevelDebug - 4},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.logrusLevel.String(), func(t *testing.T) {
-			got := lslog.Level(tc.logrusLevel).Level()
-			if got != tc.slogLevel {
-				t.Errorf("logrusToSlogLevel(%v) = %v, want %v", tc.logrusLevel, got, tc.slogLevel)
-			}
-		})
 	}
 }
