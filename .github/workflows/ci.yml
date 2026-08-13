@@ -7,9 +7,7 @@ on:
     branches: [ main ]
 
 env:
-  # Go version we currently use to build containerd across all CI.
-  # Note: don't forget to update `Binaries` step, as it contains the matrix of all supported Go versions.
-  GO_VERSION: "1.22.8"
+  GOTOOLCHAIN: local
 
 permissions: # added using https://github.com/step-security/secure-workflows
   contents: read
@@ -29,18 +27,18 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - uses: actions/setup-go@v7
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: stable
           cache: false # see actions/setup-go#368
 
       - uses: actions/checkout@v6
       - uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.1.6
+          version: v2.12
           skip-cache: true
           args: --timeout=5m
 
@@ -56,7 +54,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v7
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: stable
           cache: false # see actions/setup-go#368
 
       - uses: actions/checkout@v6
@@ -70,9 +68,16 @@ jobs:
           repo-access-token: ${{ secrets.GITHUB_TOKEN }}
 
   tests:
-    name: Tests
+    name: Tests / ${{ matrix.go-version || 'go.mod' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
+
+    strategy:
+      matrix:
+        go-version:
+          - "" # leave empty to use go-version-file (go.mod)
+          - oldstable
+          - stable
 
     steps:
       - uses: actions/checkout@v6
@@ -81,7 +86,8 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ matrix.go-version }}
+          go-version-file: src/github.com/containerd/log/go.mod # used when go-version is empty
 
       - name: Set env
         shell: bash
