@@ -40,6 +40,7 @@ package log
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 
 	"github.com/sirupsen/logrus"
@@ -167,6 +168,24 @@ const (
 
 // SetFormat sets the log output format ([TextFormat] or [JSONFormat]).
 func SetFormat(format OutputFormat) error {
+	if slogOut != nil {
+		var handler slog.Handler
+		switch format {
+		case TextFormat:
+			handler = slog.NewTextHandler(slogOut, &slog.HandlerOptions{Level: loggerLevel{}})
+		case JSONFormat:
+			handler = slog.NewJSONHandler(slogOut, &slog.HandlerOptions{Level: loggerLevel{}})
+		default:
+			return fmt.Errorf("unknown log format: %s", format)
+		}
+		slog.SetDefault(slog.New(handler))
+
+		// Keep logrus formatting and output disabled, as both are handled by slog.
+		L.Logger.SetFormatter(discardFormatter{})
+		L.Logger.SetOutput(io.Discard)
+		return nil
+	}
+
 	switch format {
 	case TextFormat:
 		L.Logger.SetFormatter(&logrus.TextFormatter{
@@ -179,17 +198,6 @@ func SetFormat(format OutputFormat) error {
 		})
 	default:
 		return fmt.Errorf("unknown log format: %s", format)
-	}
-
-	if slogOut != nil {
-		var handler slog.Handler
-		switch format {
-		case TextFormat:
-			handler = slog.NewTextHandler(slogOut, &slog.HandlerOptions{Level: loggerLevel{}})
-		case JSONFormat:
-			handler = slog.NewJSONHandler(slogOut, &slog.HandlerOptions{Level: loggerLevel{}})
-		}
-		slog.SetDefault(slog.New(handler))
 	}
 
 	return nil
