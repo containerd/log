@@ -44,6 +44,7 @@ import (
 	"log/slog"
 
 	"github.com/sirupsen/logrus"
+	lslog "github.com/sirupsen/logrus/hooks/slog"
 )
 
 // G is a shorthand for [GetLogger].
@@ -112,12 +113,13 @@ const (
 
 // levelValue is a log level accepted by [SetLevel].
 type levelValue interface {
-	string | Level
+	string | Level | slog.Level | lslog.Level | lslog.SlogLevel
 }
 
 // SetLevel sets the global log level.
 //
-// The level may be specified as a string or a [Level].
+// The level may be specified as a string, a [Level], a [slog.Level], an
+// [lslog.Level], or an [lslog.SlogLevel].
 //
 // String levels are parsed using [logrus.ParseLevel] and may be one of:
 //
@@ -128,6 +130,10 @@ type levelValue interface {
 //   - "error" ([ErrorLevel])
 //   - "fatal" ([FatalLevel])
 //   - "panic" ([PanicLevel])
+//
+// slog levels are mapped to Logrus levels using the mapping defined by
+// [lslog.SlogLevel]. [lslog.Level] values are accepted directly as their
+// underlying Logrus level.
 //
 // SetLevel returns an error if a string level is not supported.
 func SetLevel[T levelValue](level T) error {
@@ -143,6 +149,15 @@ func SetLevel[T levelValue](level T) error {
 
 	case Level:
 		lvl = l
+
+	case slog.Level:
+		lvl = lslog.SlogLevel(l).Level()
+
+	case lslog.Level:
+		lvl = Level(l)
+
+	case lslog.SlogLevel:
+		lvl = l.Level()
 	}
 
 	L.Logger.SetLevel(lvl)
