@@ -14,14 +14,14 @@
    limitations under the License.
 */
 
-package tracing
+package otel_test
 
 import (
 	"context"
 	"testing"
 
 	"github.com/containerd/log"
-	"github.com/stretchr/testify/assert"
+	"github.com/containerd/log/otel"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -70,21 +70,27 @@ func TestLogrusHookTraceID(t *testing.T) {
 				)
 			}
 
-			hook := NewLogrusHook(WithTraceIDField(tc.enableOpt))
+			hook := otel.NewLogrusHook(otel.WithTraceIDField(tc.enableOpt))
 			entry := &log.Entry{
 				Context: ctx,
 				Data:    make(log.Fields),
 			}
 
 			err := hook.Fire(entry)
-			assert.NoError(t, err)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			traceID, ok := entry.Data["trace_id"]
 			if tc.expectedTID != "" {
-				assert.True(t, ok)
-				assert.Equal(t, tc.expectedTID, traceID)
-			} else {
-				assert.False(t, ok)
+				if !ok {
+					t.Fatal(`expected "trace_id" field`)
+				}
+				if traceID != tc.expectedTID {
+					t.Errorf(`"trace_id" = %v; want %q`, traceID, tc.expectedTID)
+				}
+			} else if ok {
+				t.Errorf(`unexpected "trace_id" field: %v`, traceID)
 			}
 		})
 	}

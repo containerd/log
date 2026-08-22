@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-package tracing
+package otel
 
 import (
 	"encoding/json"

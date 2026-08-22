@@ -36,10 +36,18 @@ jobs:
           cache: false # see actions/setup-go#368
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+      - name: Lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: v2.13
           skip-cache: true
+
+      - name: Lint otel
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.13
+          skip-cache: true
+          working-directory: otel
 
   #
   # Project checks
@@ -95,6 +103,10 @@ jobs:
           echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
-      - run: |
-          go test -v -race
+      - name: Test
+        run: go test -v -race
         working-directory: src/github.com/containerd/log
+
+      - name: Test otel
+        run: go test -v -race
+        working-directory: src/github.com/containerd/log/otel

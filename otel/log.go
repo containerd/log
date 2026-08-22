@@ -14,7 +14,11 @@
    limitations under the License.
 */
 
-package tracing
+// Package otel provides integration between containerd/log and OpenTelemetry.
+//
+// In particular, it provides a hook that records log entries as events on
+// active OpenTelemetry spans.
+package otel
 
 import (
 	"github.com/containerd/log"
