@@ -9,7 +9,7 @@ on:
 env:
   GOTOOLCHAIN: local
 
-permissions: # added using https://github.com/step-security/secure-workflows
+permissions:
   contents: read
 
 jobs:
@@ -30,17 +30,16 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@v7.0.0
         with:
           go-version: stable
           cache: false # see actions/setup-go#368
 
-      - uses: actions/checkout@v6
-      - uses: golangci/golangci-lint-action@v9
+      - uses: actions/checkout@v7.0.1
+      - uses: golangci/golangci-lint-action@v9.3.0
         with:
-          version: v2.12
+          version: v2.13
           skip-cache: true
-          args: --timeout=5m
 
   #
   # Project checks
@@ -52,12 +51,12 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@v7.0.0
         with:
           go-version: stable
           cache: false # see actions/setup-go#368
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.1
         with:
           path: src/github.com/containerd/log
           fetch-depth: 25
@@ -80,14 +79,15 @@ jobs:
           - stable
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.1
         with:
           path: src/github.com/containerd/log
 
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@v7.0.0
         with:
           go-version: ${{ matrix.go-version }}
           go-version-file: src/github.com/containerd/log/go.mod # used when go-version is empty
+          cache: false # see actions/setup-go#368
 
       - name: Set env
         shell: bash
