@@ -19,8 +19,10 @@ package otel_test
 import (
 	"context"
 	"io"
+	"slices"
 	"testing"
 
+	"github.com/containerd/log"
 	"github.com/containerd/log/otel"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
@@ -102,6 +104,61 @@ func TestLogrusHookTraceID(t *testing.T) {
 				}
 			} else if ok {
 				t.Errorf(`unexpected "trace_id" field: %v`, traceID)
+			}
+		})
+	}
+}
+
+// TestLogrusHookLevels verifies that [WithLevel] limits the levels handled by
+// the hook while preserving all levels by default.
+func TestLogrusHookLevels(t *testing.T) {
+	tests := []struct {
+		name string
+		opts []otel.HookOpt
+		want []log.Level
+	}{
+		{
+			name: "default",
+			want: []log.Level{
+				log.PanicLevel,
+				log.FatalLevel,
+				log.ErrorLevel,
+				log.WarnLevel,
+				log.InfoLevel,
+				log.DebugLevel,
+				log.TraceLevel,
+			},
+		},
+		{
+			name: "warn",
+			opts: []otel.HookOpt{
+				otel.WithLevel(log.WarnLevel),
+			},
+			want: []log.Level{
+				log.PanicLevel,
+				log.FatalLevel,
+				log.ErrorLevel,
+				log.WarnLevel,
+			},
+		},
+		{
+			name: "error",
+			opts: []otel.HookOpt{
+				otel.WithLevel(log.ErrorLevel),
+			},
+			want: []log.Level{
+				log.PanicLevel,
+				log.FatalLevel,
+				log.ErrorLevel,
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			hook := otel.NewLogrusHook(tc.opts...)
+			if got := hook.Levels(); !slices.Equal(got, tc.want) {
+				t.Errorf("Levels() = %v; want %v", got, tc.want)
 			}
 		})
 	}
