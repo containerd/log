@@ -25,6 +25,7 @@ import (
 
 	"github.com/containerd/log"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -74,6 +75,14 @@ func WithLevel(level log.Level) HookOpt {
 	}
 }
 
+// WithErrorStatusLevel configures the minimum log level that marks the
+// active span with an error status.
+func WithErrorStatusLevel(level log.Level) HookOpt {
+	return func(h *LogrusHook) {
+		h.errorStatusLevel = &level
+	}
+}
+
 // LogrusHook is a [logrus.Hook] which adds logrus events to active spans.
 // If the span is not recording or the span context is invalid, the hook
 // is a no-op.
@@ -81,6 +90,7 @@ func WithLevel(level log.Level) HookOpt {
 // [logrus.Hook]: https://github.com/sirupsen/logrus/blob/v1.9.3/hooks.go#L3-L11
 type LogrusHook struct {
 	enableTraceIDField bool
+	errorStatusLevel   *log.Level
 	levels             []log.Level
 }
 
@@ -118,6 +128,13 @@ func (h *LogrusHook) Fire(entry *log.Entry) error {
 		trace.WithAttributes(attribute.String("level", entry.Level.String())),
 		trace.WithTimestamp(entry.Time),
 	)
+
+	// Set the span status based on the log level, rather than the presence of
+	// an error field. Error values may be attached to lower-severity log entries
+	// without indicating that the operation represented by the span failed.
+	if h.errorStatusLevel != nil && entry.Level <= *h.errorStatusLevel {
+		span.SetStatus(codes.Error, entry.Message)
+	}
 
 	return nil
 }
