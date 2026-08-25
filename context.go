@@ -109,10 +109,16 @@ const (
 	PanicLevel Level = logrus.PanicLevel
 )
 
-// SetLevel sets log level globally. It returns an error if the given
-// level is not supported.
+// levelValue is a log level accepted by [SetLevel].
+type levelValue interface {
+	string | Level
+}
+
+// SetLevel sets the global log level.
 //
-// level can be one of:
+// The level may be specified as a string or a [Level].
+//
+// String levels are parsed using [logrus.ParseLevel] and may be one of:
 //
 //   - "trace" ([TraceLevel])
 //   - "debug" ([DebugLevel])
@@ -121,10 +127,21 @@ const (
 //   - "error" ([ErrorLevel])
 //   - "fatal" ([FatalLevel])
 //   - "panic" ([PanicLevel])
-func SetLevel(level string) error {
-	lvl, err := logrus.ParseLevel(level)
-	if err != nil {
-		return err
+//
+// SetLevel returns an error if a string level is not supported.
+func SetLevel[T levelValue](level T) error {
+	var lvl Level
+
+	switch l := any(level).(type) {
+	case string:
+		var err error
+		lvl, err = logrus.ParseLevel(l)
+		if err != nil {
+			return err
+		}
+
+	case Level:
+		lvl = l
 	}
 
 	L.Logger.SetLevel(lvl)

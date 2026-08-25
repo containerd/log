@@ -61,3 +61,69 @@ func TestCompat(t *testing.T) {
 		t.Errorf("expected: (%[1]T) %+[1]v, got: (%[2]T) %+[2]v", expected, l2.Data)
 	}
 }
+
+func TestSetLevel(t *testing.T) {
+	oldLevel := L.Logger.GetLevel()
+	t.Cleanup(func() {
+		L.Logger.SetLevel(oldLevel)
+	})
+
+	tests := []struct {
+		str   string
+		level Level
+	}{
+		{
+			str:   "trace",
+			level: TraceLevel,
+		},
+		{
+			str:   "debug",
+			level: DebugLevel,
+		},
+		{
+			str:   "info",
+			level: InfoLevel,
+		},
+		{
+			str:   "warn",
+			level: WarnLevel,
+		},
+		{
+			str:   "error",
+			level: ErrorLevel,
+		},
+		{
+			str:   "fatal",
+			level: FatalLevel,
+		},
+		{
+			str:   "panic",
+			level: PanicLevel,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.str, func(t *testing.T) {
+			inputs := []struct {
+				doc string
+				set func() error
+			}{
+				{doc: "string", set: func() error { return SetLevel(tc.str) }},
+				{doc: "Level", set: func() error { return SetLevel(tc.level) }},
+			}
+
+			for _, input := range inputs {
+				t.Run(input.doc, func(t *testing.T) {
+					L.Logger.SetLevel(InfoLevel)
+
+					if err := input.set(); err != nil {
+						t.Fatal(err)
+					}
+					if got := L.Logger.GetLevel(); got != tc.level {
+						t.Fatalf("got %v, want %v", got, tc.level)
+					}
+				})
+			}
+		})
+	}
+}
