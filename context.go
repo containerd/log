@@ -40,9 +40,11 @@ package log
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 
 	"github.com/sirupsen/logrus"
+	lslog "github.com/sirupsen/logrus/hooks/slog"
 )
 
 // G is a shorthand for [GetLogger].
@@ -111,12 +113,13 @@ const (
 
 // levelValue is a log level accepted by [SetLevel].
 type levelValue interface {
-	string | Level
+	string | Level | slog.Level | lslog.Level | lslog.SlogLevel
 }
 
 // SetLevel sets the global log level.
 //
-// The level may be specified as a string or a [Level].
+// The level may be specified as a string, a [Level], a [slog.Level], an
+// [lslog.Level], or an [lslog.SlogLevel].
 //
 // String levels are parsed using [logrus.ParseLevel] and may be one of:
 //
@@ -127,6 +130,10 @@ type levelValue interface {
 //   - "error" ([ErrorLevel])
 //   - "fatal" ([FatalLevel])
 //   - "panic" ([PanicLevel])
+//
+// slog levels are mapped to Logrus levels using the mapping defined by
+// [lslog.SlogLevel]. [lslog.Level] values are accepted directly as their
+// underlying Logrus level.
 //
 // SetLevel returns an error if a string level is not supported.
 func SetLevel[T levelValue](level T) error {
@@ -142,12 +149,18 @@ func SetLevel[T levelValue](level T) error {
 
 	case Level:
 		lvl = l
+
+	case slog.Level:
+		lvl = lslog.SlogLevel(l).Level()
+
+	case lslog.Level:
+		lvl = Level(l)
+
+	case lslog.SlogLevel:
+		lvl = l.Level()
 	}
 
 	L.Logger.SetLevel(lvl)
-	if slogOut != nil {
-		slogLevel.Set(logrusToSlogLevel(lvl))
-	}
 	return nil
 }
 
@@ -170,6 +183,24 @@ const (
 
 // SetFormat sets the log output format ([TextFormat] or [JSONFormat]).
 func SetFormat(format OutputFormat) error {
+	if slogOut != nil {
+		var handler slog.Handler
+		switch format {
+		case TextFormat:
+			handler = slog.NewTextHandler(slogOut, &slog.HandlerOptions{Level: loggerLevel{}})
+		case JSONFormat:
+			handler = slog.NewJSONHandler(slogOut, &slog.HandlerOptions{Level: loggerLevel{}})
+		default:
+			return fmt.Errorf("unknown log format: %s", format)
+		}
+		slog.SetDefault(slog.New(handler))
+
+		// Keep logrus formatting and output disabled, as both are handled by slog.
+		L.Logger.SetFormatter(discardFormatter{})
+		L.Logger.SetOutput(io.Discard)
+		return nil
+	}
+
 	switch format {
 	case TextFormat:
 		L.Logger.SetFormatter(&logrus.TextFormatter{
@@ -182,17 +213,6 @@ func SetFormat(format OutputFormat) error {
 		})
 	default:
 		return fmt.Errorf("unknown log format: %s", format)
-	}
-
-	if slogOut != nil {
-		var handler slog.Handler
-		switch format {
-		case TextFormat:
-			handler = slog.NewTextHandler(slogOut, &slog.HandlerOptions{Level: slogLevel})
-		case JSONFormat:
-			handler = slog.NewJSONHandler(slogOut, &slog.HandlerOptions{Level: slogLevel})
-		}
-		slog.SetDefault(slog.New(handler))
 	}
 
 	return nil

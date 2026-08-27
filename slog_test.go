@@ -141,15 +141,16 @@ func TestUseSlogHookLevels(t *testing.T) {
 	slogBuf, logrusBuf := setupSlogTest(t)
 
 	tests := []struct {
-		name    string
-		logFunc func(string, ...any)
-		message string
+		name      string
+		logFunc   func(string, ...any)
+		message   string
+		wantLevel string
 	}{
-		{"trace", L.Tracef, "trace-msg"},
-		{"debug", L.Debugf, "debug-msg"},
-		{"info", L.Infof, "info-msg"},
-		{"warn", L.Warnf, "warn-msg"},
-		{"error", L.Errorf, "error-msg"},
+		{"trace", L.Tracef, "trace-msg", "DEBUG-4"},
+		{"debug", L.Debugf, "debug-msg", "DEBUG"},
+		{"info", L.Infof, "info-msg", "INFO"},
+		{"warn", L.Warnf, "warn-msg", "WARN"},
+		{"error", L.Errorf, "error-msg", "ERROR"},
 	}
 
 	for _, tc := range tests {
@@ -159,8 +160,12 @@ func TestUseSlogHookLevels(t *testing.T) {
 
 			tc.logFunc(tc.message)
 
-			if !strings.Contains(slogBuf.String(), tc.message) {
-				t.Errorf("expected slog output to contain %q, got: %s", tc.message, slogBuf.String())
+			output := slogBuf.String()
+			if !strings.Contains(output, tc.message) {
+				t.Errorf("expected slog output to contain %q, got: %s", tc.message, output)
+			}
+			if !strings.Contains(output, "level="+tc.wantLevel) {
+				t.Errorf("expected slog output to contain level %q, got: %s", tc.wantLevel, output)
 			}
 			if logrusBuf.Len() != 0 {
 				t.Errorf("expected no logrus output, got: %s", logrusBuf.String())
@@ -212,6 +217,8 @@ func TestSetFormatWithSlog(t *testing.T) {
 	})
 }
 
+// TestSetLevelWithSlog verifies that slog filtering follows the Logrus logger
+// level, whether changed through SetLevel or directly on the logger.
 func TestSetLevelWithSlog(t *testing.T) {
 	slogBuf, _ := setupSlogTest(t)
 
@@ -248,28 +255,21 @@ func TestSetLevelWithSlog(t *testing.T) {
 	if !strings.Contains(slogBuf.String(), "now visible") {
 		t.Errorf("expected info message to appear at debug level, got: %s", slogBuf.String())
 	}
-}
 
-func TestLogrusToSlogLevel(t *testing.T) {
-	tests := []struct {
-		logrusLevel logrus.Level
-		slogLevel   slog.Level
-	}{
-		{logrus.PanicLevel, slog.LevelError + 4},
-		{logrus.FatalLevel, slog.LevelError + 2},
-		{logrus.ErrorLevel, slog.LevelError},
-		{logrus.WarnLevel, slog.LevelWarn},
-		{logrus.InfoLevel, slog.LevelInfo},
-		{logrus.DebugLevel, slog.LevelDebug},
-		{logrus.TraceLevel, slog.LevelDebug - 4},
+	// Direct changes to the Logrus logger should also affect slog filtering.
+	L.Logger.SetLevel(logrus.WarnLevel)
+
+	slogBuf.Reset()
+	L.Info("hidden after direct change")
+	if slogBuf.Len() != 0 {
+		t.Errorf("expected info message to be suppressed after direct level change, got: %s", slogBuf.String())
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.logrusLevel.String(), func(t *testing.T) {
-			got := logrusToSlogLevel(tc.logrusLevel)
-			if got != tc.slogLevel {
-				t.Errorf("logrusToSlogLevel(%v) = %v, want %v", tc.logrusLevel, got, tc.slogLevel)
-			}
-		})
+	L.Logger.SetLevel(logrus.DebugLevel)
+
+	slogBuf.Reset()
+	L.Info("visible after direct change")
+	if !strings.Contains(slogBuf.String(), "visible after direct change") {
+		t.Errorf("expected info message to appear after direct level change, got: %s", slogBuf.String())
 	}
 }

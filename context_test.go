@@ -18,10 +18,12 @@ package log
 
 import (
 	"context"
+	"log/slog"
 	"reflect"
 	"testing"
 
 	"github.com/sirupsen/logrus"
+	lslog "github.com/sirupsen/logrus/hooks/slog"
 )
 
 func TestLoggerContext(t *testing.T) {
@@ -71,34 +73,42 @@ func TestSetLevel(t *testing.T) {
 	tests := []struct {
 		str   string
 		level Level
+		slog  slog.Level
 	}{
 		{
 			str:   "trace",
 			level: TraceLevel,
+			slog:  slog.LevelDebug - 4,
 		},
 		{
 			str:   "debug",
 			level: DebugLevel,
+			slog:  slog.LevelDebug,
 		},
 		{
 			str:   "info",
 			level: InfoLevel,
+			slog:  slog.LevelInfo,
 		},
 		{
 			str:   "warn",
 			level: WarnLevel,
+			slog:  slog.LevelWarn,
 		},
 		{
 			str:   "error",
 			level: ErrorLevel,
+			slog:  slog.LevelError,
 		},
 		{
 			str:   "fatal",
 			level: FatalLevel,
+			slog:  slog.LevelError + 2,
 		},
 		{
 			str:   "panic",
 			level: PanicLevel,
+			slog:  slog.LevelError + 4,
 		},
 	}
 
@@ -110,6 +120,9 @@ func TestSetLevel(t *testing.T) {
 			}{
 				{doc: "string", set: func() error { return SetLevel(tc.str) }},
 				{doc: "Level", set: func() error { return SetLevel(tc.level) }},
+				{doc: "slog.Level", set: func() error { return SetLevel(tc.slog) }},
+				{doc: "lslog.Level", set: func() error { return SetLevel(lslog.Level(tc.level)) }},
+				{doc: "lslog.SlogLevel", set: func() error { return SetLevel(lslog.SlogLevel(tc.slog)) }},
 			}
 
 			for _, input := range inputs {
