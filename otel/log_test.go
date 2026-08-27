@@ -18,10 +18,12 @@ package otel_test
 
 import (
 	"context"
+	"io"
 	"testing"
 
-	"github.com/containerd/log"
 	"github.com/containerd/log/otel"
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -36,6 +38,7 @@ func TestLogrusHookTraceID(t *testing.T) {
 	tests := []struct {
 		name        string
 		enableOpt   bool
+		nilContext  bool
 		withSpan    bool
 		expectedTID string
 	}{
@@ -55,30 +58,38 @@ func TestLogrusHookTraceID(t *testing.T) {
 			enableOpt: true,
 			withSpan:  false,
 		},
+		{
+			name:       "TraceIDNotInjected_NoContext",
+			enableOpt:  true,
+			nilContext: true,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := context.Background()
-			if tc.withSpan {
-				ctx = trace.ContextWithSpanContext(
-					ctx,
-					trace.NewSpanContext(trace.SpanContextConfig{
-						TraceID: testTraceID,
-						SpanID:  testSpanID,
-					}),
-				)
+			logger := logrus.New()
+			logger.SetOutput(io.Discard)
+			logger.AddHook(otel.NewLogrusHook(otel.WithTraceIDField(tc.enableOpt)))
+			testHook := test.NewLocal(logger)
+
+			switch {
+			case tc.withSpan:
+				ctx := trace.ContextWithSpanContext(context.Background(), trace.NewSpanContext(trace.SpanContextConfig{
+					TraceID: testTraceID,
+					SpanID:  testSpanID,
+				}))
+				logger.WithContext(ctx).Info("test")
+
+			case tc.nilContext:
+				logger.Info("test")
+
+			default:
+				logger.WithContext(context.Background()).Info("test")
 			}
 
-			hook := otel.NewLogrusHook(otel.WithTraceIDField(tc.enableOpt))
-			entry := &log.Entry{
-				Context: ctx,
-				Data:    make(log.Fields),
-			}
-
-			err := hook.Fire(entry)
-			if err != nil {
-				t.Fatal(err)
+			entry := testHook.LastEntry()
+			if entry == nil {
+				t.Fatal("expected log entry")
 			}
 
 			traceID, ok := entry.Data["trace_id"]
