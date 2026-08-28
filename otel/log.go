@@ -72,17 +72,18 @@ func (h *LogrusHook) Levels() []log.Level {
 
 // Fire is called when a log event occurs.
 func (h *LogrusHook) Fire(entry *log.Entry) error {
-	span := trace.SpanFromContext(entry.Context)
-	if span == nil {
+	if entry.Context == nil {
 		return nil
 	}
 
-	if !span.SpanContext().IsValid() {
+	span := trace.SpanFromContext(entry.Context)
+	spanCtx := span.SpanContext()
+	if !spanCtx.IsValid() {
 		return nil
 	}
 
 	if h.enableTraceIDField {
-		entry.Data["trace_id"] = span.SpanContext().TraceID().String()
+		entry.Data["trace_id"] = spanCtx.TraceID().String()
 	}
 
 	if !span.IsRecording() {
