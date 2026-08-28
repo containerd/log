@@ -73,6 +73,55 @@ type Fields = map[string]any
 // Entry is a transitional type, and currently an alias for [logrus.Entry].
 type Entry = logrus.Entry
 
+// FieldLogger is a structured logger that supports adding fields, errors,
+// and context while preserving the FieldLogger interface.
+//
+// It is similar to [logrus.FieldLogger], but its WithContext, WithField,
+// WithFields, and WithError methods return FieldLogger instead of a concrete
+// [logrus.Entry], allowing callers to avoid depending on Logrus-specific
+// types.
+type FieldLogger interface {
+	logrus.StdLogger
+	logrus.DebugLogger
+	logrus.InfoLogger
+	logrus.WarnLogger
+	logrus.ErrorLogger
+
+	WithContext(context.Context) FieldLogger
+	WithField(key string, value any) FieldLogger
+	WithFields(fields Fields) FieldLogger
+	WithError(err error) FieldLogger
+}
+
+// AsFieldLogger adapts a Logrus [Entry] to a [FieldLogger].
+//
+// The returned logger preserves the common structured logging operations
+// without exposing Logrus-specific return types when adding fields, errors,
+// or context.
+func AsFieldLogger(entry *Entry) FieldLogger {
+	return logrusFieldLogger{entry}
+}
+
+type logrusFieldLogger struct {
+	*logrus.Entry
+}
+
+func (l logrusFieldLogger) WithContext(ctx context.Context) FieldLogger {
+	return logrusFieldLogger{l.Entry.WithContext(ctx)}
+}
+
+func (l logrusFieldLogger) WithField(key string, value any) FieldLogger {
+	return logrusFieldLogger{l.Entry.WithField(key, value)}
+}
+
+func (l logrusFieldLogger) WithFields(fields Fields) FieldLogger {
+	return logrusFieldLogger{l.Entry.WithFields(fields)}
+}
+
+func (l logrusFieldLogger) WithError(err error) FieldLogger {
+	return logrusFieldLogger{l.Entry.WithError(err)}
+}
+
 // RFC3339NanoFixed is [time.RFC3339Nano] with nanoseconds padded using
 // zeros to ensure the formatted time is always the same number of
 // characters.
@@ -218,17 +267,32 @@ func SetFormat(format OutputFormat) error {
 	return nil
 }
 
-// WithLogger returns a new context with the provided logger. Use in
-// combination with logger.WithField(s) for great effect.
-func WithLogger(ctx context.Context, logger *Entry) context.Context {
-	return context.WithValue(ctx, loggerKey{}, logger.WithContext(ctx))
+// WithLogger returns a new context with the provided logger.
+//
+// The logger may be either an [Entry] or a value implementing [FieldLogger].
+// Accepting both forms is intended to ease migration from the Logrus-specific
+// API to FieldLogger:
+//
+//	ctx = WithLogger(ctx, logrus.NewEntry(logrus.StandardLogger()))
+//	ctx = WithLogger(ctx, G(ctx).WithField("request_id", requestID))
+//
+// WithLogger panics if logger is neither an *Entry nor a FieldLogger.
+func WithLogger(ctx context.Context, logger any) context.Context {
+	switch l := logger.(type) {
+	case *Entry:
+		return context.WithValue(ctx, loggerKey{}, AsFieldLogger(l).WithContext(ctx))
+	case FieldLogger:
+		return context.WithValue(ctx, loggerKey{}, l.WithContext(ctx))
+	default:
+		panic(fmt.Sprintf("log: unsupported logger type %T", logger))
+	}
 }
 
 // GetLogger retrieves the current logger from the context. If no logger is
 // available, the default logger is returned.
-func GetLogger(ctx context.Context) *Entry {
+func GetLogger(ctx context.Context) FieldLogger {
 	if logger := ctx.Value(loggerKey{}); logger != nil {
-		return logger.(*Entry)
+		return logger.(FieldLogger)
 	}
-	return L.WithContext(ctx)
+	return AsFieldLogger(L).WithContext(ctx)
 }
