@@ -164,6 +164,10 @@ func SetLevel[T levelValue](level T) error {
 	return nil
 }
 
+func SetOutput(out io.Writer) {
+	L.Logger.SetOutput(out)
+}
+
 // GetLevel returns the current log level.
 func GetLevel() Level {
 	return L.Logger.GetLevel()
