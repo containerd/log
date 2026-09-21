@@ -56,6 +56,8 @@ func NewLogrusHook(opts ...HookOpt) *LogrusHook {
 	return hook
 }
 
+// WithTraceIDField configures the hook to add the trace ID of the active span
+// to log entries.
 func WithTraceIDField(enabled bool) HookOpt {
 	return func(h *LogrusHook) {
 		h.enableTraceIDField = enabled
