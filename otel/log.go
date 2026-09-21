@@ -62,6 +62,14 @@ func WithTraceIDField(enabled bool) HookOpt {
 	}
 }
 
+// WithSpanIDField configures the hook to add the span ID of the active span
+// to log entries.
+func WithSpanIDField(enabled bool) HookOpt {
+	return func(h *LogrusHook) {
+		h.enableSpanIDField = enabled
+	}
+}
+
 // WithLevel configures the minimum log level handled by the hook.
 // Entries below this level are ignored.
 func WithLevel(level log.Level) HookOpt {
@@ -90,6 +98,7 @@ func WithErrorStatusLevel(level log.Level) HookOpt {
 // [logrus.Hook]: https://github.com/sirupsen/logrus/blob/v1.9.3/hooks.go#L3-L11
 type LogrusHook struct {
 	enableTraceIDField bool
+	enableSpanIDField  bool
 	errorStatusLevel   *log.Level
 	levels             []log.Level
 }
@@ -116,6 +125,9 @@ func (h *LogrusHook) Fire(entry *log.Entry) error {
 
 	if h.enableTraceIDField {
 		entry.Data["trace_id"] = spanCtx.TraceID().String()
+	}
+	if h.enableSpanIDField {
+		entry.Data["span_id"] = spanCtx.SpanID().String()
 	}
 
 	if !span.IsRecording() {
