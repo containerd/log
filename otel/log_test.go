@@ -32,7 +32,10 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const expectedTraceIDStr = "0102030405060708090a0b0c0d0e0f10"
+const (
+	expectedTraceIDStr = "0102030405060708090a0b0c0d0e0f10"
+	expectedSpanIDStr  = "0102030405060708"
+)
 
 var (
 	testTraceID = trace.TraceID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
@@ -54,33 +57,49 @@ func (s *testSpan) IsRecording() bool                     { return true }
 func (s *testSpan) AddEvent(string, ...trace.EventOption) {}
 func (s *testSpan) SetStatus(code codes.Code, _ string)   { s.status = code }
 
-func TestLogrusHookTraceID(t *testing.T) {
+func TestLogrusHookSpanContextFields(t *testing.T) {
 	tests := []struct {
 		name        string
-		enableOpt   bool
+		traceID     bool
+		spanID      bool
 		nilContext  bool
 		withSpan    bool
 		expectedTID string
+		expectedSID string
 	}{
 		{
 			name:        "TraceIDInjected",
-			enableOpt:   true,
+			traceID:     true,
 			withSpan:    true,
 			expectedTID: expectedTraceIDStr,
 		},
 		{
-			name:      "TraceIDNotInjected_OptionDisabled",
-			enableOpt: false,
-			withSpan:  true,
+			name:        "SpanIDInjected",
+			spanID:      true,
+			withSpan:    true,
+			expectedSID: expectedSpanIDStr,
 		},
 		{
-			name:      "TraceIDNotInjected_NoSpan",
-			enableOpt: true,
-			withSpan:  false,
+			name:        "TraceAndSpanIDInjected",
+			traceID:     true,
+			spanID:      true,
+			withSpan:    true,
+			expectedTID: expectedTraceIDStr,
+			expectedSID: expectedSpanIDStr,
 		},
 		{
-			name:       "TraceIDNotInjected_NoContext",
-			enableOpt:  true,
+			name:     "FieldsNotInjected_OptionsDisabled",
+			withSpan: true,
+		},
+		{
+			name:    "FieldsNotInjected_NoSpan",
+			traceID: true,
+			spanID:  true,
+		},
+		{
+			name:       "FieldsNotInjected_NoContext",
+			traceID:    true,
+			spanID:     true,
 			nilContext: true,
 		},
 	}
@@ -89,7 +108,10 @@ func TestLogrusHookTraceID(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			logger := logrus.New()
 			logger.SetOutput(io.Discard)
-			logger.AddHook(otel.NewLogrusHook(otel.WithTraceIDField(tc.enableOpt)))
+			logger.AddHook(otel.NewLogrusHook(
+				otel.WithTraceIDField(tc.traceID),
+				otel.WithSpanIDField(tc.spanID),
+			))
 			testHook := test.NewLocal(logger)
 
 			switch {
@@ -122,6 +144,18 @@ func TestLogrusHookTraceID(t *testing.T) {
 				}
 			} else if ok {
 				t.Errorf(`unexpected "trace_id" field: %v`, traceID)
+			}
+
+			spanID, ok := entry.Data["span_id"]
+			if tc.expectedSID != "" {
+				if !ok {
+					t.Fatal(`expected "span_id" field`)
+				}
+				if spanID != tc.expectedSID {
+					t.Errorf(`"span_id" = %v; want %q`, spanID, tc.expectedSID)
+				}
+			} else if ok {
+				t.Errorf(`unexpected "span_id" field: %v`, spanID)
 			}
 		})
 	}
