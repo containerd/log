@@ -26,11 +26,26 @@ import (
 	lslog "github.com/sirupsen/logrus/hooks/slog"
 )
 
+func entryFields(t *testing.T, l FieldLogger) Fields {
+	t.Helper()
+
+	switch l := l.(type) {
+	case logrusFieldLogger:
+		return l.Data
+	case *logrusFieldLogger:
+		return l.Data
+	default:
+		t.Fatalf("expected logrusFieldLogger, got %T", l)
+		return nil
+	}
+}
+
 func TestLoggerContext(t *testing.T) {
 	const expected = "one"
 	ctx := context.Background()
 	ctx = WithLogger(ctx, G(ctx).WithField("test", expected))
-	if actual := GetLogger(ctx).Data["test"]; actual != expected {
+	logger := GetLogger(ctx).(logrusFieldLogger)
+	if actual := logger.Data["test"]; actual != expected {
 		t.Errorf("expected: %v, got: %v", expected, actual)
 	}
 	a := G(ctx)
@@ -51,8 +66,8 @@ func TestCompat(t *testing.T) {
 	l = l.WithFields(logrus.Fields{"hello1": "world1"})
 	l = l.WithFields(Fields{"hello2": "world2"})
 	l = l.WithFields(map[string]any{"hello3": "world3"})
-	if !reflect.DeepEqual(Fields(l.Data), expected) {
-		t.Errorf("expected: (%[1]T) %+[1]v, got: (%[2]T) %+[2]v", expected, l.Data)
+	if got := entryFields(t, l); !reflect.DeepEqual(got, expected) {
+		t.Errorf("expected: (%[1]T) %+[1]v, got: (%[2]T) %+[2]v", expected, got)
 	}
 
 	l2 := L
